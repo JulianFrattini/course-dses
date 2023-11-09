@@ -1,0 +1,160 @@
+---
+title: "Iris Exploration"
+author: "Julian Frattini"
+date: '2023-11-08'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, echo = T, warning=FALSE, message=FALSE}
+# tidyverse packages plus patchwork for figure assembly
+library(tidyverse)
+library(patchwork)
+
+# machine learning libraries
+library(caret)
+library(nnet)
+library(MLeval)
+
+# decision tree libraries
+library(rattle)
+```
+
+This file contains the analysis of the [Iris data](https://www.kaggle.com/datasets/uciml/iris).
+
+## Data Loading
+
+We load the Iris data from the included base R package `databases`.
+
+```{r data}
+data(iris)
+iris$Species <- as.factor(iris$Species) 
+head(iris)
+```
+
+For an initial overview we visualize the distribution of the four input variables split by groups.
+
+```{r vis}
+vis.sepal.length <- ggplot(iris, aes(x=Species, y=Sepal.Length)) + geom_boxplot()
+vis.sepal.width <- ggplot(iris, aes(x=Species, y=Sepal.Width)) + geom_boxplot()
+vis.petal.length <- ggplot(iris, aes(x=Species, y=Petal.Length)) + geom_boxplot()
+vis.petal.width <- ggplot(iris, aes(x=Species, y=Petal.Width)) + geom_boxplot()
+
+(vis.sepal.length | vis.sepal.width) / (vis.petal.length | vis.petal.width)
+```
+
+## Model comparison 
+
+The response variable, `Species`, is a categorical variable with three levels, which limits the space of eligible methods. We try out both decision trees (`method="rpart`) and multinomial logistic regression (`method="multinom`). For evaluation, we define the training control to be a k-fold cross-validation.
+
+```{r cv}
+train_control <- trainControl(method="cv", number=5, repeats=3, savePredictions = TRUE)
+```
+
+### Decision tree
+
+A decision tree determines conditions which split the data set into more pure subsets.
+
+```{r decision-tree-training}
+fit.dtree <- train(Species ~ ., data=iris, method="rpart", trControl = train_control)
+fit.dtree
+```
+
+We can use the `rattle` library to visualize the decision tree.
+
+```{r decision-tree-visualization}
+fancyRpartPlot(fit.dtree$finalModel)
+```
+
+### Multinomial Logistic Regression
+
+Multinomial logistic regression determines regression functions for each level of the response variable (minus the reference value).
+
+```{r test-train-split, echo=T, results='hide', warning=FALSE, message=FALSE}
+fit.multinom <- caret::train(Species~., data=iris, trControl=train_control, method="multinom")
+summary(fit.multinom)
+```
+
+The model exhibits a sufficient accuracy of $>95%$.
+
+```{r accuracy}
+fit.multinom
+```
+
+The confusion matrix shows that the levels `setosa` and `versicolor` are easy to distinguish, but there are still slight misclassifications between `versicolor` and `virginica`.
+
+```{r confusion}
+confusionMatrix(fit.multinom)
+```
+
+To understand the influence of each of the four predictors on the response variable, we visualize the coefficients of the covariates similar to https://rpubs.com/yanliu/viz_multinomial_regression. Firstly, we extract the mean and standard error from the trained final model.
+
+```{r parameter-extraction}
+coef.matrix <- coef(fit.multinom$finalModel)
+coefs <- data.frame(Category = row.names(coef.matrix), coef.matrix)
+
+stderr.matrix <- summary(fit.multinom$finalModel)$standard.errors
+stderrs <- data.frame(Category = row.names(stderr.matrix), stderr.matrix)
+
+params.coef <- coefs %>% 
+  pivot_longer(cols=c("X.Intercept.", "Sepal.Length", "Sepal.Width", "Petal.Length", "Petal.Width"), 
+             names_to='Covariate', values_to = "estimate")
+
+params.stderr <- stderrs %>% 
+  pivot_longer(cols=c("X.Intercept.", "Sepal.Length", "Sepal.Width", "Petal.Length", "Petal.Width"), 
+             names_to='Covariate', values_to = "stderr")
+
+params <- params.coef %>% 
+  full_join(params.stderr, by=c('Category', 'Covariate')) %>% 
+  mutate(
+    lower = estimate-stderr,
+    upper = estimate+stderr
+  )
+```
+
+Then, we visualize the mean and 95% confidence interval for each covariate for each response variable.
+
+```{r visualize-coefficients}
+pos <- position_nudge(y = ifelse(params$Category == "versicolor", -0.1, 0.1))
+
+params %>% 
+  ggplot(aes(y=Covariate, x=estimate, color=Category)) +
+    geom_point(position = pos) +
+    geom_linerange(aes(xmin = lower, xmax = upper), position = pos) +
+    geom_vline(xintercept=0, linetype="dashed") +
+    scale_x_continuous(name ="Regression Coefficients")
+    
+```
+
+### Neural Network
+
+```{r neural-net, echo=T, results='hide', warning=FALSE, message=FALSE}
+fit.nnet <- caret::train(Species~., data=iris, trControl=train_control, method="nnet")
+```
+
+```{r}
+fit.nnet
+```
+
+### Model comparison
+
+Finally, we assemble the results of all models to compare their accuracy.
+
+```{r ensable-results}
+ensambleResults <- resamples(
+  list(
+    MNom = fit.multinom, 
+    DTree = fit.dtree,
+    NNet = fit.nnet))
+summary(ensambleResults)
+```
+
+We can visualize the ensable to compare their accuracy.
+
+```{r accuracy-comparison}
+lattice::dotplot(ensambleResults)
+```
+
