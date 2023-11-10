@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+    }
+  </style>
+  <title>Jump and Run Game with Movement</title>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="800" height="400"></canvas>
+
+<script>
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+
+  const player = {
+    x: 50,
+    y: canvas.height - 50,
+    width: 30,
+    height: 30,
+    color: "blue",
+    jumping: false,
+    jumpHeight: 100,
+    jumpCount: 0,
+    speed: 5,
+  };
+
+  const ground = {
+    y: canvas.height - 20,
+    height: 20,
+    color: "green",
+  };
+
+  function draw() {
+    // Clear the canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw ground
+    ctx.fillStyle = ground.color;
+    ctx.fillRect(0, ground.y, canvas.width, ground.height);
+
+    // Draw player
+    ctx.fillStyle = player.color;
+    ctx.fillRect(player.x, player.y, player.width, player.height);
+  }
+
+  function update() {
+    // Update player position
+    if (player.jumping) {
+      player.y -= 5;
+      player.jumpCount += 5;
+
+      if (player.jumpCount >= player.jumpHeight) {
+        player.jumping = false;
+        player.jumpCount = 0;
+      }
+    } else if (player.y < ground.y - player.height) {
+      // Player is in the air, apply gravity
+      player.y += 5;
+    } else {
+      // Player is on the ground
+      player.y = ground.y - player.height;
+    }
+  }
+
+  function handleKeyPress(e) {
+    if (e.code === "Space" && !player.jumping) {
+      player.jumping = true;
+    }
+
+    if (e.code === "ArrowLeft") {
+      // Move left
+      player.x -= player.speed;
+    }
+
+    if (e.code === "ArrowRight") {
+      // Move right
+      player.x += player.speed;
+    }
+  }
+
+  function gameLoop() {
+    draw();
+    update();
+    requestAnimationFrame(gameLoop);
+  }
+
+  // Handle key presses
+  window.addEventListener("keydown", handleKeyPress);
+
+  gameLoop();
+</script>
+
+</body>
+</html>
