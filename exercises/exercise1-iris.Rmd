@@ -17,7 +17,7 @@ library(patchwork)
 # machine learning libraries
 library(caret)
 library(nnet)
-library(MLeval)
+library(pROC)
 
 # decision tree libraries
 library(rattle)
@@ -73,7 +73,7 @@ fancyRpartPlot(fit.dtree$finalModel)
 
 Multinomial logistic regression determines regression functions for each level of the response variable (minus the reference value).
 
-```{r test-train-split, echo=T, results='hide', warning=FALSE, message=FALSE}
+```{r multinom, echo=T, results='hide', warning=FALSE, message=FALSE}
 fit.multinom <- caret::train(Species~., data=iris, trControl=train_control, method="multinom")
 summary(fit.multinom)
 ```
@@ -138,6 +138,41 @@ fit.nnet <- caret::train(Species~., data=iris, trControl=train_control, method="
 ```{r}
 fit.nnet
 ```
+
+Generate the ROC curve for the predictions of the neural net predictor.
+
+```{r predictions}
+# Assuming your model is stored in 'trained_model'
+predictions <- predict(fit.nnet, newdata = iris, type = "prob")
+```
+
+```{r calculate-roc}
+# Assuming three classes in Iris dataset (adjust as needed)
+classes <- levels(iris$Species)
+
+roc_curves <- lapply(classes, function(class) {
+  actual <- ifelse(iris$Species == class, 1, 0)
+  predicted <- predictions[, class]
+  roc_curve <- roc(actual, predicted)
+  return(roc_curve)
+})
+```
+
+```{r visualize-roc}
+colors <- c("red", "green", "blue")  # Adjust colors as needed
+for (i in seq_along(roc_curves)) {
+  plot(roc_curves[[i]], col = colors[i], add = i > 1, lwd = 2)
+}
+
+for (i in 2:length(roc_curves)) {
+  plot(roc_curves[[i]], col = colors[i], add = TRUE, lwd = 2)
+}
+
+# Add legend
+legend("bottomright", legend = classes, col = colors, lwd = 2)
+```
+
+
 
 ### Model comparison
 
