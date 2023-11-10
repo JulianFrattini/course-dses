@@ -9,7 +9,7 @@ This repository contains material from the course "Data Science for Engineers an
 The repository contains the following, relevant artifacts:
 
 * [exercises/exercise1-iris](./exercises/exercise1-iris.Rmd): an exploration of several machine learning methods to analyze the iris data set
-* [exercises/exercise2-pong](./exercises/exercise2-point.R): a (failed) attempt by a generative AI to create the game pong in R
+* [exercises/exercise2-pong](./exercises/exercise2-pong.R): a (failed) attempt by a generative AI to create the game pong in R
 * [exercises/exercise3-compare](./exercises/exercise3-compare.Rmd): a comparison of several machine learning methods on multiple data sets
 
 ## Licensing
