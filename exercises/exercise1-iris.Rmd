@@ -172,8 +172,6 @@ for (i in 2:length(roc_curves)) {
 legend("bottomright", legend = classes, col = colors, lwd = 2)
 ```
 
-
-
 ### Model comparison
 
 Finally, we assemble the results of all models to compare their accuracy.

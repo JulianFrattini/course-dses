@@ -1,0 +1,123 @@
+---
+title: "Model and Data Comparison"
+author: "Julian Frattini"
+date: '2023-11-10'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, echo = T, warning=FALSE, message=FALSE}
+# tidyverse packages plus patchwork for figure assembly
+library(tidyverse)
+library(patchwork)
+
+# machine learning libraries
+library(caret)
+library(nnet)
+library(pROC)
+
+# decision tree libraries
+library(rattle)
+```
+
+This file contains the comparison of multiple models on multiple data sets.
+
+## Data Loading
+
+We chose the following data sets to test our methods on:
+
+```{r data}
+datasets <- c('iris', 'chickwts')
+
+data <- list(
+  'iris' = iris,
+  'chickwts' = chickwts
+)
+```
+
+For each data set, we determine the prediction function.
+
+```{r formula}
+prediction <- list(
+  'iris' = (Species~.),
+  'chickwts' = (feed~.)
+)
+```
+
+### Visualization
+
+To gain a general idea of the data, we visualize the dependent variable in relation to the independent variables
+
+```{r vis-data-iris}
+vis.sepal.length <- ggplot(iris, aes(x=Species, y=Sepal.Length)) + geom_boxplot()
+vis.sepal.width <- ggplot(iris, aes(x=Species, y=Sepal.Width)) + geom_boxplot()
+vis.petal.length <- ggplot(iris, aes(x=Species, y=Petal.Length)) + geom_boxplot()
+vis.petal.width <- ggplot(iris, aes(x=Species, y=Petal.Width)) + geom_boxplot()
+
+(vis.sepal.length | vis.sepal.width) / (vis.petal.length | vis.petal.width)
+```
+
+```{r vis-data-chickwts}
+ggplot(chickwts, aes(x=feed, y=weight)) + geom_boxplot()
+```
+
+The `iris` data shows a clear distinction between species based on some of the continuous predictors. The `chickwts` data, on the other hand, does not show a strong distinction given the only predictor `weight`.
+
+## Model Comparison
+
+We employ the following methods and training control for our methods:
+
+```{r methods}
+methods <- c("nnet", "multinom", "rpart")
+train_control <- trainControl(method="cv", number=5, savePredictions = TRUE)
+```
+
+### Training
+
+Now, we train one model for every combination of method and data set.
+
+```{r models, echo=T, results='hide', warning=FALSE, message=FALSE}
+model_list <- list()
+index <- 0
+
+for (d in datasets) {
+  for (m in methods) {
+     fit <- caret::train(
+       prediction[[d]],
+       data = data[[d]],
+       method = m,
+       trControl = train_control)
+     
+     index = index+1
+     model_list[[index]] <- fit
+  }
+}
+
+#fit <- matrix(fits, nrow=length(datasets), byrow=TRUE, dimnames = list(datasets, methods))
+```
+
+We store the fitted models in a matrix for easier access.
+
+```{r matrix}
+fits <- matrix(model_list, nrow = length(methods), ncol=length(datasets))
+
+rownames(fits) <- methods
+colnames(fits) <- datasets
+```
+
+### Evaluation
+
+To evaluate the models, we compare the accuracy of each method on one data set.
+
+```{r ensable-results}
+plots <- list()
+
+for (d in datasets) {
+  dplot <- lattice::dotplot(resamples(fits[, d]))
+  print(dplot)
+}
+```
+
